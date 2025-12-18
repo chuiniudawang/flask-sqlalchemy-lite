@@ -84,7 +84,10 @@ class SQLAlchemy:
 
         self._app_state[app] = _State(
             engines=engines,
-            sessionmaker=_make_sessionmaker(self._session_options, engines, False),
+            sessionmakers={
+                k: _make_sessionmaker(self._session_options, {"default": engine}, False)
+                for k, engine in engines.items()
+            },
             async_engines=async_engines,
             async_sessionmaker=_make_sessionmaker(
                 self._session_options, async_engines, True
@@ -130,8 +133,7 @@ class SQLAlchemy:
         """The default engine associated with the current application."""
         return self.get_engine()
 
-    @property
-    def sessionmaker(self) -> orm.sessionmaker[orm.Session]:
+    def sessionmaker(self, name: str = "default") -> orm.sessionmaker[orm.Session]:
         """The session factory configured for the current application. This can
         be used to create sessions directly, but they will not be closed
         automatically at the end of the application context. Use :attr:`session`
@@ -141,7 +143,7 @@ class SQLAlchemy:
         :meth:`init_app`, by calling its
         :meth:`~sqlalchemy.orm.sessionmaker.configure` method.
         """
-        return self._get_state().sessionmaker
+        return self._get_state().sessionmakers[name]
 
     def get_session(self, name: str = "default") -> orm.Session:
         """Create a :class:`sqlalchemy.orm.Session` that will be closed at the
@@ -156,7 +158,7 @@ class SQLAlchemy:
         sessions: dict[str, orm.Session] = g.setdefault("_sqlalchemy_sessions", {})
 
         if name not in sessions:
-            sessions[name] = self.sessionmaker()
+            sessions[name] = self.sessionmaker(name)()
 
         return sessions[name]
 
@@ -526,7 +528,7 @@ class _State:
     """The objects associated with one application."""
 
     engines: dict[str, t.Any]
-    sessionmaker: orm.sessionmaker[orm.Session]
+    sessionmakers: orm.sessionmaker[orm.Session]
     async_engines: dict[str, t.Any]
     async_sessionmaker: sa_async.async_sessionmaker[sa_async.AsyncSession]
 

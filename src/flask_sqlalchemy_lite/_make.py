@@ -150,6 +150,9 @@ def _make_sessionmaker(
     :param engines: The collection of sync or async engines.
     :param is_async: Whether to create a sync or async sessionmaker.
     """
+    if not engines:
+        return
+
     if not is_async:
         config_key = "SQLALCHEMY_ENGINES"
         make: t.Callable[..., t.Any] = orm.sessionmaker
